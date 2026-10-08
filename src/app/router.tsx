@@ -8,6 +8,7 @@ import ProveedoresPage from '@/modules/proveedores/ProveedoresPage';
 import ComprasPage from '@/modules/compras/ComprasPage';
 import InventarioPage from '@/modules/inventario/InventarioPage';
 import VentasPage from '@/modules/ventas/VentasPage';
+import FinanzasPage from '@/modules/finanzas/FinanzasPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, isLoading } = useAuth();
@@ -49,7 +50,7 @@ const router = createBrowserRouter([
       { path: 'vendedores', element: <div className="p-4">Vendedores externos (Próximamente)</div> },
       { path: 'garantias', element: <div className="p-4">Garantías (Próximamente)</div> },
       { path: 'caja', element: <div className="p-4">Caja (Próximamente)</div> },
-      { path: 'finanzas', element: <div className="p-4">Finanzas (Próximamente)</div> },
+      { path: 'finanzas', element: <FinanzasPage /> },
       { path: 'cierres', element: <div className="p-4">Cierre semanal (Próximamente)</div> },
     ],
   },

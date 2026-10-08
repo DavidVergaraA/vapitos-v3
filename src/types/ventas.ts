@@ -82,3 +82,57 @@ export interface VentaEstado {
   estado: string;
   recaudo_neto: number;
 }
+
+export interface DetalleVenta {
+  id: string;
+  venta_id: string;
+  variante_id: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal_linea: number | null;
+  marca_snapshot: string;
+  modelo_snapshot: string;
+  sabor_snapshot: string;
+  puffs_snapshot: number | null;
+  creado_at: string;
+}
+
+export interface AbonoVenta {
+  id: string;
+  venta_id: string;
+  monto: number;
+  metodo_pago: MetodoPagoVenta;
+  estado: string;
+  fecha_abono: string;
+  referencia: string | null;
+  notas: string | null;
+  movimiento_caja_id: string;
+  registrado_por: string | null;
+  creado_at: string;
+}
+
+export interface RegistrarAbonoInput {
+  venta_id: string;
+  monto: number;
+  metodo_pago: MetodoPagoVenta;
+  referencia?: string | null;
+  notas?: string | null;
+}
+
+export interface RegistrarAbonoResponse {
+  abono_id: string;
+  venta_id: string;
+  monto: number;
+}
+
+export interface Comision {
+  id: string;
+  venta_id: string;
+  vendedor_externo_id: string;
+  monto_manual: number;
+  liquidable_at: string | null;
+  estado: 'pendiente_pago_venta' | 'liquidable' | 'pagada';
+  notas: string | null;
+  creada_por: string | null;
+  creado_at: string;
+}

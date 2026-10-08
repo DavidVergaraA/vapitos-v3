@@ -2,11 +2,17 @@ import { rid, supabase } from '@/lib/supabase';
 import type {
   InventarioDisponibleVenta,
   ItemVentaInput,
+  MetodoPagoVenta,
   RegistrarVentaInput,
   RegistrarVentaPayload,
   RegistrarVentaResponse,
   VentaEstado,
   VendedorExterno,
+  AbonoVenta,
+  Comision,
+  DetalleVenta,
+  RegistrarAbonoInput,
+  RegistrarAbonoResponse,
 } from '@/types/ventas';
 
 function consolidarItems(items: ItemVentaInput[]): ItemVentaInput[] {
@@ -118,4 +124,56 @@ export async function fetchVentasEstado(): Promise<VentaEstado[]> {
   if (error) throw new Error(error.message);
 
   return (data || []) as VentaEstado[];
+}
+
+export async function fetchDetalleVenta(ventaId: string): Promise<{ lineas: DetalleVenta[]; abonos: AbonoVenta[] }> {
+  const { data: lineas, error: lineasError } = await supabase
+    .from('detalle_ventas')
+    .select('id, venta_id, variante_id, cantidad, precio_unitario, subtotal_linea, marca_snapshot, modelo_snapshot, sabor_snapshot, puffs_snapshot, creado_at')
+    .eq('venta_id', ventaId)
+    .order('creado_at', { ascending: true });
+  if (lineasError) throw new Error(lineasError.message);
+
+  const { data: abonos, error: abonosError } = await supabase
+    .from('abonos_ventas')
+    .select('id, venta_id, monto, metodo_pago, estado, fecha_abono, referencia, notas, movimiento_caja_id, registrado_por, creado_at')
+    .eq('venta_id', ventaId)
+    .order('fecha_abono', { ascending: false });
+  if (abonosError) throw new Error(abonosError.message);
+
+  return { lineas: (lineas || []) as DetalleVenta[], abonos: (abonos || []) as AbonoVenta[] };
+}
+
+export async function registrarAbono(input: RegistrarAbonoInput): Promise<RegistrarAbonoResponse> {
+  const { data, error } = await supabase.rpc('rpc_registrar_abono', {
+    p_request_id: rid(),
+    p_venta_id: input.venta_id,
+    p_monto: input.monto,
+    p_metodo_pago: input.metodo_pago,
+    p_referencia: input.referencia ?? null,
+    p_notas: input.notas ?? null,
+  });
+  if (error) throw new Error(error.message || 'Error al registrar el abono');
+  return data as RegistrarAbonoResponse;
+}
+
+export async function fetchComisiones(): Promise<Comision[]> {
+  const { data, error } = await supabase
+    .from('comisiones')
+    .select('id, venta_id, vendedor_externo_id, monto_manual, liquidable_at, estado, notas, creada_por, creado_at')
+    .order('creado_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []) as Comision[];
+}
+
+export async function pagarComision(input: { comision_id: string; monto: number; metodo_pago: MetodoPagoVenta; notas: string }): Promise<unknown> {
+  const { data, error } = await supabase.rpc('rpc_pagar_comision', {
+    p_request_id: rid(),
+    p_comision_id: input.comision_id,
+    p_monto: input.monto,
+    p_metodo_pago: input.metodo_pago,
+    p_notas: input.notas,
+  });
+  if (error) throw new Error(error.message || 'Error al pagar la comisión');
+  return data;
 }

@@ -10,6 +10,7 @@ import {
   fetchVendedoresExternosActivos,
   registrarVenta,
 } from './ventasService';
+import HistorialVentas from './HistorialVentas';
 import type { DestinoUtilidadExterna, ItemVentaInput, MetodoPagoVenta, RegistrarVentaResponse } from '@/types/ventas';
 
 interface LineaCarrito extends ItemVentaInput {
@@ -120,6 +121,7 @@ export default function VentasPage() {
       setComisionManual('');
       setNotas('');
       setFormError(null);
+      await queryClient.invalidateQueries({ queryKey: ['ventas-estado'] });
       await queryClient.invalidateQueries({ queryKey: ['inventario-disponible-venta'] });
     },
   });
@@ -284,6 +286,7 @@ export default function VentasPage() {
       </div>
 
       {confirmationOpen && <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"><div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200"><h2 className="text-xl font-bold text-slate-900">Confirmar venta</h2><p className="text-sm text-slate-500 mt-2">Se registrarán {carrito.reduce((total, linea) => total + linea.cantidad, 0)} unidad(es) por un total de <strong className="text-slate-800">{money(totalFinal)}</strong>.</p>{abono > 0 && <p className="text-sm text-slate-500 mt-2">Abono inicial: {money(abono)} por {metodoPago}.</p>}<div className="flex justify-end gap-2 mt-6"><button type="button" onClick={() => setConfirmationOpen(false)} disabled={ventaMutation.isPending} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button><button type="button" onClick={confirmarVenta} disabled={ventaMutation.isPending} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-50">{ventaMutation.isPending ? 'Registrando...' : 'Confirmar y registrar'}</button></div></div></div>}
+      <HistorialVentas />
     </div>
   );
 }
