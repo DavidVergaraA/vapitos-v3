@@ -2,31 +2,32 @@ import { supabase, rid } from '@/lib/supabase';
 
 export interface CierreSemanal {
   id: string;
-  semana_inicio: string;
-  semana_fin: string;
-  ventas_totales?: number;
-  recaudo_total?: number;
-  costos_totales?: number;
-  resultado_neto?: number;
-  monto_distribuible?: number;
-  distribucion_reinversion?: number;
-  distribucion_socio_1?: number;
-  distribucion_socio_2?: number;
-  estado?: string;
-  cerrado_por?: string | null;
-  cerrado_at?: string;
-  notas?: string | null;
+  fecha_inicio: string;
+  fecha_fin: string;
+  estado: string;
+  total_ventas: number;
+  total_recaudo: number;
+  total_cartera: number;
+  total_costos: number;
+  total_comisiones: number;
+  total_impacto_garantias: number;
+  total_reembolsos: number;
+  resultado_negocio: number;
+  resumen_snapshot: Record<string, unknown>;
+  cerrado_por: string | null;
+  cerrado_at: string;
+  notas: string | null;
 }
 
 export async function fetchCierres(): Promise<CierreSemanal[]> {
   const { data, error } = await supabase
-    .from('cierres')
-    .select('*')
-    .order('semana_fin', { ascending: false });
+    .from('cierres_semanales')
+    .select('id, fecha_inicio, fecha_fin, estado, total_ventas, total_recaudo, total_cartera, total_costos, total_comisiones, total_impacto_garantias, total_reembolsos, resultado_negocio, resumen_snapshot, cerrado_por, cerrado_at, notas')
+    .order('fecha_fin', { ascending: false });
 
   if (error) {
-    // Si la tabla aún no tiene RLS permisivo para lectura directa o está vacía
-    return [];
+    console.error('Error al consultar cierres semanales:', error);
+    throw new Error(error.message);
   }
 
   return (data || []) as CierreSemanal[];
@@ -34,17 +35,16 @@ export async function fetchCierres(): Promise<CierreSemanal[]> {
 
 export async function ejecutarCierreSemanal(input: {
   fecha_inicio: string;
-  fecha_fin: string;
   notas?: string;
 }): Promise<unknown> {
   const { data, error } = await supabase.rpc('rpc_cerrar_semana', {
     p_request_id: rid(),
     p_fecha_inicio: input.fecha_inicio,
-    p_fecha_fin: input.fecha_fin,
     p_notas: input.notas ?? null,
   });
 
   if (error) {
+    console.error('Error en rpc_cerrar_semana:', error);
     throw new Error(error.message || 'Error al ejecutar el cierre semanal');
   }
 

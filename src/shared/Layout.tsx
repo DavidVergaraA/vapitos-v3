@@ -25,6 +25,16 @@ const navItems = [
 export default function Layout() {
   const { signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+
+  const handleSignOut = async () => {
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch (error: unknown) {
+      setSignOutError(error instanceof Error ? error.message : 'No se pudo cerrar la sesión.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -74,8 +84,9 @@ export default function Layout() {
         </nav>
 
         <div className="p-4 border-t border-slate-200">
+          {signOutError && <p role="alert" className="mb-2 text-xs text-red-700">No se pudo cerrar la sesión: {signOutError}</p>}
           <button
-            onClick={signOut}
+            onClick={handleSignOut}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors w-full"
           >
             <LogOut size={18} />

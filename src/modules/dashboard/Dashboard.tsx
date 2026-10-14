@@ -29,6 +29,7 @@ export default function Dashboard() {
     isLoading: inventarioLoading,
     isError: inventarioError,
     refetch: refetchInventario,
+    isFetching: inventarioFetching,
   } = useQuery({
     queryKey: ['inventario-disponible'],
     queryFn: fetchInventarioDisponible,
@@ -39,6 +40,7 @@ export default function Dashboard() {
     isLoading: comisionesLoading,
     isError: comisionesError,
     refetch: refetchComisiones,
+    isFetching: comisionesFetching,
   } = useQuery({
     queryKey: ['comisiones'],
     queryFn: fetchComisiones,
@@ -48,6 +50,8 @@ export default function Dashboard() {
     data: garantias = [],
     isLoading: garantiasLoading,
     isError: garantiasError,
+    refetch: refetchGarantias,
+    isFetching: garantiasFetching,
   } = useQuery({
     queryKey: ['garantias'],
     queryFn: fetchGarantias,
@@ -57,6 +61,8 @@ export default function Dashboard() {
     data: cierres = [],
     isLoading: cierresLoading,
     isError: cierresError,
+    refetch: refetchCierres,
+    isFetching: cierresFetching,
   } = useQuery({
     queryKey: ['cierres-semanales'],
     queryFn: fetchCierres,
@@ -72,8 +78,8 @@ export default function Dashboard() {
     const costoInventario = inventario.reduce((acc, u) => acc + (u.costo_actual || 0), 0);
 
     const comisionesLiquidables = comisiones
-      .filter((c) => c.estado === 'liquidable')
-      .reduce((acc, c) => acc + (c.monto_manual || 0), 0);
+      .filter((c) => c.estado_calculado === 'liquidable')
+      .reduce((acc, c) => acc + (c.saldo_comision || 0), 0);
 
     const garantiasAbiertas = garantias.filter(
       (g) => !g.resolucion || g.estado === 'abierta' || g.estado === 'pendiente'
@@ -94,9 +100,13 @@ export default function Dashboard() {
   }, [ventas, inventario, comisiones, garantias, cierres]);
 
   const recargarTodo = () => {
-    refetchVentas();
-    refetchInventario();
-    refetchComisiones();
+    void Promise.all([
+      refetchVentas(),
+      refetchInventario(),
+      refetchComisiones(),
+      refetchGarantias(),
+      refetchCierres(),
+    ]);
   };
 
   const ultimasVentas = useMemo(() => ventas.slice(0, 5), [ventas]);
@@ -114,11 +124,11 @@ export default function Dashboard() {
         </div>
         <button
           onClick={recargarTodo}
-          disabled={ventasFetching}
+          disabled={ventasFetching || inventarioFetching || comisionesFetching || garantiasFetching || cierresFetching}
           className="self-start sm:self-auto inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
           title="Actualizar métricas"
         >
-          <RefreshCw size={16} className={ventasFetching ? 'animate-spin' : ''} />
+          <RefreshCw size={16} className={ventasFetching || inventarioFetching || comisionesFetching || garantiasFetching || cierresFetching ? 'animate-spin' : ''} />
           Actualizar datos
         </button>
       </div>
@@ -232,7 +242,7 @@ export default function Dashboard() {
           <div>
             <span className="text-xs font-semibold text-slate-500">Garantías abiertas</span>
             <p className="text-lg font-bold text-slate-900 mt-1">
-              {garantiasLoading ? '…' : garantiasError ? 'Sin registro' : `${metricas.garantiasAbiertas} caso(s)`}
+              {garantiasLoading ? '…' : garantiasError ? 'No disponible' : `${metricas.garantiasAbiertas} caso(s)`}
             </p>
           </div>
           <Link
@@ -249,7 +259,7 @@ export default function Dashboard() {
           <div>
             <span className="text-xs font-semibold text-slate-500">Último cierre semanal</span>
             <p className="text-sm font-bold text-slate-800 mt-1">
-              {cierresLoading ? '…' : metricas.ultimoCierre ? `Semana ${new Date(metricas.ultimoCierre.semana_fin).toLocaleDateString('es-CO')}` : 'Sin cierres previos'}
+              {cierresLoading ? '…' : cierresError ? 'No disponible' : metricas.ultimoCierre ? `Semana ${new Date(metricas.ultimoCierre.fecha_fin).toLocaleDateString('es-CO')}` : 'Sin cierres previos'}
             </p>
           </div>
           <Link

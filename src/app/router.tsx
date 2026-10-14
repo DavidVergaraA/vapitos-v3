@@ -14,15 +14,17 @@ import CierresPage from '@/modules/cierres/CierresPage';
 import VendedoresPage from '@/modules/vendedores/VendedoresPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, authError } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Cargando sesión...</div>;
+  if (authError) return <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4"><div role="alert" className="max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-sm text-red-700">No se pudo verificar la sesión: {authError}. Comprueba la conexión y vuelve a cargar.</div></div>;
   if (!session) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, authError } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500 font-medium">Cargando sesión...</div>;
+  if (authError) return <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4"><div role="alert" className="max-w-lg rounded-2xl border border-red-200 bg-white p-6 text-sm text-red-700">No se pudo verificar la sesión: {authError}. Comprueba la conexión y vuelve a cargar.</div></div>;
   if (session) return <Navigate to="/" replace />;
   return <>{children}</>;
 };

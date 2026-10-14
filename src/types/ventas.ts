@@ -126,13 +126,14 @@ export interface RegistrarAbonoResponse {
 }
 
 export interface Comision {
-  id: string;
+  comision_id: string;
   venta_id: string;
   vendedor_externo_id: string;
   monto_manual: number;
+  obligacion_actual: number;
+  total_pagado: number;
+  saldo_comision: number;
+  sobrepago_comision: number;
   liquidable_at: string | null;
-  estado: 'pendiente_pago_venta' | 'liquidable' | 'pagada';
-  notas: string | null;
-  creada_por: string | null;
-  creado_at: string;
+  estado_calculado: 'sin_obligacion' | 'pendiente_pago_venta' | 'sobrepagada' | 'pagada' | 'liquidable';
 }

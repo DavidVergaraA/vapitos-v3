@@ -14,16 +14,14 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      setError(signInError.message);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) setError(signInError.message);
+    } catch (signInError: unknown) {
+      setError(signInError instanceof Error ? signInError.message : 'No se pudo iniciar sesión.');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
@@ -47,7 +45,7 @@ export default function Login() {
 
         {!configured && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 border border-red-200">
-            Falta configurar VITE_SUPABASE_ANON_KEY en .env.local.
+            Configuración de Supabase ausente o distinta del proyecto de desarrollo autorizado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.
           </div>
         )}
 

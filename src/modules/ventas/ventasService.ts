@@ -159,9 +159,9 @@ export async function registrarAbono(input: RegistrarAbonoInput): Promise<Regist
 
 export async function fetchComisiones(): Promise<Comision[]> {
   const { data, error } = await supabase
-    .from('comisiones')
-    .select('id, venta_id, vendedor_externo_id, monto_manual, liquidable_at, estado, notas, creada_por, creado_at')
-    .order('creado_at', { ascending: false });
+    .from('vw_comisiones_estado')
+    .select('comision_id, venta_id, vendedor_externo_id, monto_manual, obligacion_actual, total_pagado, saldo_comision, sobrepago_comision, liquidable_at, estado_calculado')
+    .order('liquidable_at', { ascending: false, nullsFirst: false });
   if (error) throw new Error(error.message);
   return (data || []) as Comision[];
 }

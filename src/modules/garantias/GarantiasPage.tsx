@@ -22,10 +22,10 @@ export default function GarantiasPage() {
 
   const filtered = useMemo(() => {
     if (filter === 'pendientes') {
-      return garantias.filter((g) => !g.resolucion || g.estado === 'abierta' || g.estado === 'pendiente');
+      return garantias.filter((g) => g.estado === 'abierta' || g.estado === 'en_revision');
     }
     if (filter === 'resueltas') {
-      return garantias.filter((g) => g.resolucion && g.estado !== 'abierta' && g.estado !== 'pendiente');
+      return garantias.filter((g) => g.estado === 'resuelta');
     }
     return garantias;
   }, [garantias, filter]);
@@ -102,9 +102,6 @@ export default function GarantiasPage() {
             <p className="text-xs mt-1">
               {error instanceof Error ? error.message : 'No se pudo consultar la tabla de garantías.'}
             </p>
-            <p className="text-xs mt-2 text-amber-700">
-              Nota: Si el backend aún no ha expuesto permisos RLS o la RPC de garantías para el rol actual, las consultas se reintentarán al actualizar.
-            </p>
           </div>
         </div>
       ) : filtered.length === 0 ? (
@@ -139,7 +136,7 @@ export default function GarantiasPage() {
                     )}
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Venta: <span className="font-mono text-slate-700">{g.venta_id}</span> · Unidad: <span className="font-mono text-slate-700">{g.unidad_id}</span>
+                    Venta: <span className="font-mono text-slate-700">{g.venta_origen_id}</span> · Unidad: <span className="font-mono text-slate-700">{g.unidad_defectuosa_id || 'Sin vínculo disponible'}</span>
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
                     Registrada el {new Date(g.creado_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -180,11 +177,11 @@ export default function GarantiasPage() {
               <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs">
                 <div>
                   <span className="text-slate-500 block">Venta de origen:</span>
-                  <span className="font-mono font-semibold text-slate-800">{selectedGarantia.venta_id}</span>
+                  <span className="font-mono font-semibold text-slate-800">{selectedGarantia.venta_origen_id}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Unidad defectuosa afectada:</span>
-                  <span className="font-mono font-semibold text-slate-800">{selectedGarantia.unidad_id}</span>
+                  <span className="font-mono font-semibold text-slate-800">{selectedGarantia.unidad_defectuosa_id || 'No disponible'}</span>
                 </div>
                 {selectedGarantia.unidad_reemplazo_id && (
                   <div>

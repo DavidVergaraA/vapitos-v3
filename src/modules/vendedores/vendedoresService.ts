@@ -28,22 +28,8 @@ export async function guardarVendedorExterno(input: {
   });
 
   if (error) {
-    // Si la RPC no existe o tiene otra firma, intentamos upsert directo si RLS lo permite
-    const { data: upsertData, error: upsertError } = await supabase
-      .from('vendedores_externos')
-      .upsert({
-        ...(input.id ? { id: input.id } : {}),
-        nombre: input.nombre.trim(),
-        contacto: input.contacto ? input.contacto.trim() : null,
-        activo: input.activo ?? true,
-      })
-      .select()
-      .single();
-
-    if (upsertError) {
-      throw new Error(error.message || upsertError.message);
-    }
-    return upsertData;
+    console.error('Error en rpc_guardar_vendedor_externo:', error);
+    throw new Error(error.message);
   }
 
   return data;

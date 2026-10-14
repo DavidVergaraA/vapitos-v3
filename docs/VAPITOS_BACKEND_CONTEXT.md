@@ -1,4 +1,6 @@
-# VAPITOS V3 — BACKEND CONTEXT
+# VAPITOS V3 — BACKEND CONTEXT (CONTEXTO HISTÓRICO)
+
+> Este documento registra decisiones históricas y referencias de migraciones; no es un inventario actualizado del despliegue. En la auditoría del 2026-10-14 no había carpeta SQL/migraciones local. Antes de actuar, consulta `CONTRATOS_BACKEND.md` y vuelve a verificar el proyecto de desarrollo autorizado. La nota “0022 NO fue aplicada” es histórica y no fue verificada en esta auditoría.
 
 ## Propósito
 

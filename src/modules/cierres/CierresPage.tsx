@@ -43,6 +43,7 @@ export default function CierresPage() {
   const {
     data: ventas = [],
     isLoading: ventasLoading,
+    isError: ventasError,
   } = useQuery({
     queryKey: ['ventas-estado'],
     queryFn: fetchVentasEstado,
@@ -58,22 +59,9 @@ export default function CierresPage() {
     });
 
     const totalVentas = ventasSemana.reduce((acc, v) => acc + (v.total_final || 0), 0);
-    const recaudo = ventasSemana.reduce((acc, v) => acc + (v.recaudo_neto || 0), 0);
-    const saldo = ventasSemana.reduce((acc, v) => acc + (v.saldo_pendiente || 0), 0);
-
-    // Distribution preview: 40% reinversión, 30% socio 1, 30% socio 2 (si recaudo > 0)
-    const reinversion = recaudo > 0 ? recaudo * 0.4 : 0;
-    const socio1 = recaudo > 0 ? recaudo * 0.3 : 0;
-    const socio2 = recaudo > 0 ? recaudo * 0.3 : 0;
-
     return {
       cantidadVentas: ventasSemana.length,
       totalVentas,
-      recaudo,
-      saldo,
-      reinversion,
-      socio1,
-      socio2,
     };
   }, [ventas, lunes, domingo]);
 
@@ -105,7 +93,6 @@ export default function CierresPage() {
     setErrorCierre(null);
     cierreMutation.mutate({
       fecha_inicio: lunes.toISOString().split('T')[0],
-      fecha_fin: domingo.toISOString().split('T')[0],
       notas: notasCierre.trim() || undefined,
     });
   };
@@ -160,62 +147,34 @@ export default function CierresPage() {
         </div>
 
         {/* Live Metrics for the Current Week */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {ventasError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">No se pudieron consultar las ventas para el periodo. No se muestran importes parciales.</div>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-slate-50 rounded-xl">
             <span className="text-xs font-semibold text-slate-500">Ventas de la semana</span>
             <p className="text-xl font-black text-slate-900 mt-1">
-              {ventasLoading ? '…' : money(metricasSemanaActual.totalVentas)}
+              {ventasLoading ? '…' : ventasError ? 'Error' : money(metricasSemanaActual.totalVentas)}
             </p>
-            <p className="text-[11px] text-slate-400 mt-1">{metricasSemanaActual.cantidadVentas} venta(s) registrada(s)</p>
+            <p className="text-[11px] text-slate-400 mt-1">Importe de ventas fechadas en este periodo</p>
           </div>
 
           <div className="p-4 bg-slate-50 rounded-xl">
-            <span className="text-xs font-semibold text-emerald-600">Recaudo acumulado</span>
-            <p className="text-xl font-black text-emerald-700 mt-1">
-              {ventasLoading ? '…' : money(metricasSemanaActual.recaudo)}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-1">Ingresos efectivos netos</p>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-xl">
-            <span className="text-xs font-semibold text-amber-600">Cartera de la semana</span>
-            <p className="text-xl font-black text-amber-700 mt-1">
-              {ventasLoading ? '…' : money(metricasSemanaActual.saldo)}
-            </p>
-            <p className="text-[11px] text-slate-400 mt-1">Saldo pendiente por cobrar</p>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-xl">
-            <span className="text-xs font-semibold text-blue-600">Distribución estimada</span>
+            <span className="text-xs font-semibold text-blue-600">Ventas registradas</span>
             <p className="text-xl font-black text-blue-700 mt-1">
-              {ventasLoading ? '…' : money(metricasSemanaActual.recaudo)}
+              {ventasLoading ? '…' : ventasError ? 'Error' : metricasSemanaActual.cantidadVentas}
             </p>
-            <p className="text-[11px] text-slate-400 mt-1">Base de cálculo (recaudo)</p>
+            <p className="text-[11px] text-slate-400 mt-1">En el periodo calendario mostrado</p>
           </div>
         </div>
 
-        {/* Distribution Breakdown Preview */}
+        {/* Backend-computed closure preview */}
         <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl space-y-3">
           <div className="flex items-center gap-2">
             <PieChart size={16} className="text-blue-600" />
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Esquema de distribución (Configuración vigente: 40% / 30% / 30%)
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Cálculo del cierre
             </h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div className="p-3 bg-white rounded-lg border border-slate-200">
-              <span className="text-slate-500">Reinversión de capital (40%)</span>
-              <p className="text-base font-bold text-slate-900 mt-1">{money(metricasSemanaActual.reinversion)}</p>
-            </div>
-            <div className="p-3 bg-white rounded-lg border border-slate-200">
-              <span className="text-slate-500">Socio 1 (30%)</span>
-              <p className="text-base font-bold text-slate-900 mt-1">{money(metricasSemanaActual.socio1)}</p>
-            </div>
-            <div className="p-3 bg-white rounded-lg border border-slate-200">
-              <span className="text-slate-500">Socio 2 (30%)</span>
-              <p className="text-base font-bold text-slate-900 mt-1">{money(metricasSemanaActual.socio2)}</p>
-            </div>
-          </div>
+          <p className="text-xs text-slate-600">La distribución definitiva no se estima en esta pantalla: la RPC calcula resultado, costos, comisiones, reembolsos e impactos con la configuración vigente y registra el snapshot del cierre.</p>
           <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
             <Info size={13} className="flex-shrink-0 text-blue-500" />
             Regla de negocio: Si el resultado neto es negativo, el monto distribuible se fija en $0 y no se distribuyen pérdidas a socios.
@@ -250,14 +209,14 @@ export default function CierresPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800">
-                      Semana {formatearFecha(c.semana_inicio)} – {formatearFecha(c.semana_fin)}
+                      Semana {formatearFecha(c.fecha_inicio)} – {formatearFecha(c.fecha_fin)}
                     </span>
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                       {c.estado || 'cerrada'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Ventas: {money(c.ventas_totales)} · Recaudo: {money(c.recaudo_total)} · Distribuible: {money(c.monto_distribuible)}
+                    Ventas: {money(c.total_ventas)} · Recaudo: {money(c.total_recaudo)} · Resultado: {money(c.resultado_negocio)}
                   </p>
                 </div>
                 <div className="text-xs text-slate-600">
@@ -301,13 +260,10 @@ export default function CierresPage() {
                 <strong>{money(metricasSemanaActual.totalVentas)}</strong>
               </div>
               <div className="flex justify-between">
-                <span>Recaudo neto:</span>
-                <strong>{money(metricasSemanaActual.recaudo)}</strong>
+                <span>Ventas registradas:</span>
+                <strong>{metricasSemanaActual.cantidadVentas}</strong>
               </div>
-              <div className="flex justify-between">
-                <span>Cartera pendiente:</span>
-                <strong>{money(metricasSemanaActual.saldo)}</strong>
-              </div>
+              <p className="mt-2 border-t border-slate-200 pt-2">El cálculo financiero definitivo y el snapshot los genera el backend al cerrar. Esta pantalla no estima recaudos, cartera ni distribuciones.</p>
             </div>
 
             <div>

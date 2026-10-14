@@ -3,24 +3,27 @@ import { supabase } from '@/lib/supabase';
 export interface MovimientoCaja {
   id: string;
   monto: number;
-  tipo_movimiento?: string;
-  metodo_pago?: string;
-  referencia?: string | null;
-  notas?: string | null;
+  tipo_movimiento: string;
+  direccion: string;
+  metodo_pago: string;
+  fecha_movimiento: string;
+  motivo: string;
+  referencia_tipo: string | null;
+  referencia_id: string | null;
   creado_at: string;
 }
 
 export async function fetchMovimientosCaja(): Promise<MovimientoCaja[]> {
   const { data, error } = await supabase
     .from('movimientos_caja')
-    .select('*')
-    .order('creado_at', { ascending: false })
+    .select('id, tipo_movimiento, direccion, monto, metodo_pago, fecha_movimiento, motivo, referencia_tipo, referencia_id, creado_at')
+    .order('fecha_movimiento', { ascending: false })
     .limit(50);
 
   if (error) {
-    // Si la tabla no tiene acceso directo de lectura bajo el rol actual, devolvemos array vacío sin quebrar la pantalla
-    return [];
+    console.error('Error al consultar movimientos de caja:', error);
+    throw new Error(error.message);
   }
 
-  return (data || []) as MovimientoCaja[];
+  return data || [];
 }

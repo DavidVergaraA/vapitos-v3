@@ -54,6 +54,7 @@ export default function FinanzasPage() {
   const {
     data: movimientosCaja = [],
     isLoading: cajaLoading,
+    isError: cajaError,
     refetch: refetchCaja,
   } = useQuery({
     queryKey: ['movimientos-caja'],
@@ -67,16 +68,16 @@ export default function FinanzasPage() {
     const reembolsos = ventas.reduce((acc, v) => acc + (v.reembolso_total || 0), 0);
 
     const comisionesLiquidables = comisiones
-      .filter((c) => c.estado === 'liquidable')
-      .reduce((acc, c) => acc + (c.monto_manual || 0), 0);
+      .filter((c) => c.estado_calculado === 'liquidable')
+      .reduce((acc, c) => acc + (c.saldo_comision || 0), 0);
 
     const comisionesPagadas = comisiones
-      .filter((c) => c.estado === 'pagada')
-      .reduce((acc, c) => acc + (c.monto_manual || 0), 0);
+      .filter((c) => c.estado_calculado === 'pagada')
+      .reduce((acc, c) => acc + (c.total_pagado || 0), 0);
 
     const comisionesPendientes = comisiones
-      .filter((c) => c.estado === 'pendiente_pago_venta')
-      .reduce((acc, c) => acc + (c.monto_manual || 0), 0);
+      .filter((c) => c.estado_calculado === 'pendiente_pago_venta')
+      .reduce((acc, c) => acc + (c.obligacion_actual || 0), 0);
 
     return {
       totalVentas,
@@ -90,9 +91,9 @@ export default function FinanzasPage() {
   }, [ventas, comisiones]);
 
   const comisionesFiltradas = useMemo(() => {
-    if (comisionFiltro === 'liquidables') return comisiones.filter((c) => c.estado === 'liquidable');
-    if (comisionFiltro === 'pendientes') return comisiones.filter((c) => c.estado === 'pendiente_pago_venta');
-    if (comisionFiltro === 'pagadas') return comisiones.filter((c) => c.estado === 'pagada');
+    if (comisionFiltro === 'liquidables') return comisiones.filter((c) => c.estado_calculado === 'liquidable');
+    if (comisionFiltro === 'pendientes') return comisiones.filter((c) => c.estado_calculado === 'pendiente_pago_venta');
+    if (comisionFiltro === 'pagadas') return comisiones.filter((c) => c.estado_calculado === 'pagada');
     return comisiones;
   }, [comisiones, comisionFiltro]);
 
@@ -284,38 +285,36 @@ export default function FinanzasPage() {
             <div className="divide-y divide-slate-100">
               {comisionesFiltradas.map((comision) => {
                 const badgeColor =
-                  comision.estado === 'pagada'
+                  comision.estado_calculado === 'pagada'
                     ? 'bg-slate-100 text-slate-700'
-                    : comision.estado === 'liquidable'
+                    : comision.estado_calculado === 'liquidable'
                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold'
                     : 'bg-amber-50 text-amber-700 border border-amber-200';
 
                 return (
                   <div
-                    key={comision.id}
+                    key={comision.comision_id}
                     className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
                   >
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs text-slate-500">Venta {comision.venta_id.slice(0, 8)}...</span>
                         <span className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${badgeColor}`}>
-                          {comision.estado.replace(/_/g, ' ')}
+                          {comision.estado_calculado.replace(/_/g, ' ')}
                         </span>
                       </div>
                       <p className="text-base font-bold text-slate-900 mt-1">
-                        {money(comision.monto_manual)}
+                        {money(comision.obligacion_actual)}
                       </p>
-                      {comision.notas && (
-                        <p className="text-xs text-slate-400 mt-0.5">{comision.notas}</p>
-                      )}
+                      <p className="text-xs text-slate-400 mt-0.5">Pagado: {money(comision.total_pagado)} · Saldo: {money(comision.saldo_comision)}</p>
                     </div>
 
-                    {comision.estado === 'liquidable' && (
+                    {comision.estado_calculado === 'liquidable' && comision.saldo_comision > 0 && (
                       <button
                         onClick={() => {
                           setComisionSeleccionada({
-                            id: comision.id,
-                            monto: comision.monto_manual,
+                            id: comision.comision_id,
+                            monto: comision.saldo_comision,
                             venta_id: comision.venta_id,
                           });
                           setFormError(null);
@@ -348,9 +347,13 @@ export default function FinanzasPage() {
               <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-blue-600" />
               Cargando movimientos de caja...
             </div>
+          ) : cajaError ? (
+            <div className="p-5 text-sm text-red-700 bg-red-50 m-4 rounded-xl border border-red-200">
+              No se pudieron consultar los movimientos de caja. Revisa el acceso de lectura y vuelve a intentarlo.
+            </div>
           ) : movimientosCaja.length === 0 ? (
             <div className="p-10 text-center text-sm text-slate-500">
-              No hay movimientos de caja registrados o la tabla no tiene movimientos directos.
+              No hay movimientos de caja registrados.
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
@@ -361,7 +364,7 @@ export default function FinanzasPage() {
                       {mov.tipo_movimiento || 'Movimiento'} · {mov.metodo_pago || 'General'}
                     </p>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {new Date(mov.creado_at).toLocaleString('es-CO')} {mov.referencia ? `· Ref: ${mov.referencia}` : ''}
+                      {new Date(mov.fecha_movimiento).toLocaleString('es-CO')} · {mov.direccion} · {mov.motivo}
                     </p>
                   </div>
                   <strong className="text-slate-900 text-base">{money(mov.monto)}</strong>

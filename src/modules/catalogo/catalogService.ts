@@ -19,7 +19,7 @@ export async function fetchProductos(): Promise<ProductoConVariantes[]> {
   }
 
   const { data: variantes, error: varError } = await supabase
-    .from('variantes')
+    .from('variantes_producto')
     .select('*')
     .order('sabor', { ascending: true });
 

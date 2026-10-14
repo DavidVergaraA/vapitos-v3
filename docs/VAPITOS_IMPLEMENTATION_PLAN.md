@@ -1,4 +1,6 @@
-# VAPITOS V3 — IMPLEMENTATION PLAN
+# VAPITOS V3 — IMPLEMENTATION PLAN (PLAN HISTÓRICO)
+
+> Este documento conserva el plan inicial y no describe por sí solo el estado actual. Consulta `ESTADO_PROYECTO.md` y `BACKLOG_VAPITOS_V3.md` antes de continuar.
 
 ## 1. Objetivo
 
