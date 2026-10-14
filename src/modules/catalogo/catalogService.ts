@@ -13,14 +13,20 @@ export async function fetchProductos(): Promise<ProductoConVariantes[]> {
     .select('*')
     .order('marca', { ascending: true });
 
-  if (prodError) throw new Error(prodError.message);
+  if (prodError) {
+    console.error('Error al consultar productos:', prodError);
+    throw new Error(prodError.message);
+  }
 
   const { data: variantes, error: varError } = await supabase
     .from('variantes')
     .select('*')
     .order('sabor', { ascending: true });
 
-  if (varError) throw new Error(varError.message);
+  if (varError) {
+    console.error('Error al consultar variantes:', varError);
+    throw new Error(varError.message);
+  }
 
   const variantesByProd = (variantes || []).reduce<Record<string, Variante[]>>((acc, v) => {
     if (!acc[v.producto_id]) acc[v.producto_id] = [];
@@ -42,6 +48,7 @@ export async function guardarProducto(producto: Omit<GuardarProductoPayload, 'p_
 
   const { error } = await supabase.rpc('rpc_guardar_producto', payload);
   if (error) {
+    console.error('Error en rpc_guardar_producto:', error);
     throw new Error(error.message || 'Error al guardar el producto');
   }
 }
@@ -54,6 +61,7 @@ export async function guardarVariante(variante: Omit<GuardarVariantePayload, 'p_
 
   const { error } = await supabase.rpc('rpc_guardar_variante', payload);
   if (error) {
+    console.error('Error en rpc_guardar_variante:', error);
     throw new Error(error.message || 'Error al guardar la variante');
   }
 }

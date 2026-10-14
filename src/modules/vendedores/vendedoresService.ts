@@ -21,7 +21,7 @@ export async function guardarVendedorExterno(input: {
   // Primero intentamos vía rpc_guardar_vendedor_externo
   const { data, error } = await supabase.rpc('rpc_guardar_vendedor_externo', {
     p_request_id: rid(),
-    p_id: input.id ?? null,
+    p_vendedor_id: input.id ?? null,
     p_nombre: input.nombre.trim(),
     p_contacto: input.contacto ? input.contacto.trim() : null,
     p_activo: input.activo ?? true,

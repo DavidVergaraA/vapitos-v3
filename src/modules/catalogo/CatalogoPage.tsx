@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { fetchProductos, guardarProducto, guardarVariante } from './catalogService';
 import type { ProductoConVariantes } from '@/types/catalog';
-import { rid } from '@/lib/supabase';
 
 export default function CatalogoPage() {
   const queryClient = useQueryClient();
@@ -54,6 +53,7 @@ export default function CatalogoPage() {
   });
 
   const openNewProductModal = () => {
+    productMutation.reset();
     setEditingProduct(null);
     setPMarca('');
     setPModelo('');
@@ -65,6 +65,7 @@ export default function CatalogoPage() {
   };
 
   const openEditProductModal = (p: ProductoConVariantes) => {
+    productMutation.reset();
     setEditingProduct(p);
     setPMarca(p.marca);
     setPModelo(p.modelo);
@@ -78,9 +79,11 @@ export default function CatalogoPage() {
   const closeProductModal = () => {
     setProductModal(false);
     setEditingProduct(null);
+    productMutation.reset();
   };
 
   const openAddVariantModal = (productId: string) => {
+    variantMutation.reset();
     setSelectedProductId(productId);
     setVSabor('');
     setVActivo(true);
@@ -90,12 +93,14 @@ export default function CatalogoPage() {
   const closeVariantModal = () => {
     setVariantModal(false);
     setSelectedProductId(null);
+    variantMutation.reset();
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!pMarca.trim() || !pModelo.trim()) return;
     productMutation.mutate({
-      p_producto_id: editingProduct ? editingProduct.id : rid(),
+      p_producto_id: editingProduct ? editingProduct.id : null,
       p_marca: pMarca.trim(),
       p_modelo: pModelo.trim(),
       p_categoria: pCategoria.trim() || null,
@@ -107,9 +112,9 @@ export default function CatalogoPage() {
 
   const handleSaveVariant = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId) return;
+    if (!selectedProductId || !vSabor.trim()) return;
     variantMutation.mutate({
-      p_variante_id: rid(),
+      p_variante_id: null,
       p_producto_id: selectedProductId,
       p_sabor: vSabor.trim(),
       p_atributos: {},

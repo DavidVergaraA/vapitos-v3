@@ -26,7 +26,7 @@ export interface ProductoConVariantes extends Producto {
 
 export interface GuardarProductoPayload {
   p_request_id: string;
-  p_producto_id: string;
+  p_producto_id: string | null;
   p_marca: string;
   p_modelo: string;
   p_categoria: string | null;
@@ -37,7 +37,7 @@ export interface GuardarProductoPayload {
 
 export interface GuardarVariantePayload {
   p_request_id: string;
-  p_variante_id: string;
+  p_variante_id: string | null;
   p_producto_id: string;
   p_sabor: string;
   p_atributos: Record<string, unknown>;
