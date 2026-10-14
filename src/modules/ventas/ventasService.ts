@@ -85,7 +85,7 @@ export async function registrarVenta(input: RegistrarVentaInput): Promise<Regist
     p_items: items,
     p_descuento_total: descuentoTotal,
     p_pago_inicial: pagoInicial,
-    p_metodo_pago: input.metodo_pago ?? null,
+    p_metodo_pago: pagoInicial > 0 ? (input.metodo_pago ?? null) : null,
     p_notas: input.notas ?? null,
   };
 

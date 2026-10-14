@@ -123,6 +123,7 @@ export default function VentasPage() {
       setFormError(null);
       await queryClient.invalidateQueries({ queryKey: ['ventas-estado'] });
       await queryClient.invalidateQueries({ queryKey: ['inventario-disponible-venta'] });
+      await queryClient.invalidateQueries({ queryKey: ['inventario-disponible'] });
     },
   });
 
@@ -280,7 +281,11 @@ export default function VentasPage() {
 
           <div><label className="block text-xs font-semibold text-slate-700 mb-1">Notas</label><textarea rows={2} value={notas} onChange={(event) => setNotas(event.target.value)} placeholder="Opcional" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
           {formError && <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm">{formError}</div>}
-          {ventaMutation.isError && <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm">No se pudo registrar la venta. Verifica los datos e inténtalo de nuevo.</div>}
+          {ventaMutation.isError && (
+            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm">
+              {ventaMutation.error instanceof Error ? ventaMutation.error.message : 'No se pudo registrar la venta. Verifica los datos e inténtalo de nuevo.'}
+            </div>
+          )}
           <button type="button" onClick={abrirConfirmacion} disabled={carrito.length === 0 || ventaMutation.isPending} className="w-full inline-flex justify-center items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"><CreditCard size={17} />Registrar venta</button>
         </aside>
       </div>

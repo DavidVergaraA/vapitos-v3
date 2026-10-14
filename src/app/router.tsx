@@ -9,6 +9,9 @@ import ComprasPage from '@/modules/compras/ComprasPage';
 import InventarioPage from '@/modules/inventario/InventarioPage';
 import VentasPage from '@/modules/ventas/VentasPage';
 import FinanzasPage from '@/modules/finanzas/FinanzasPage';
+import GarantiasPage from '@/modules/garantias/GarantiasPage';
+import CierresPage from '@/modules/cierres/CierresPage';
+import VendedoresPage from '@/modules/vendedores/VendedoresPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, isLoading } = useAuth();
@@ -47,11 +50,11 @@ const router = createBrowserRouter([
       { path: 'ventas', element: <VentasPage /> },
       { path: 'inventario', element: <InventarioPage /> },
       { path: 'compras', element: <ComprasPage /> },
-      { path: 'vendedores', element: <div className="p-4">Vendedores externos (Próximamente)</div> },
-      { path: 'garantias', element: <div className="p-4">Garantías (Próximamente)</div> },
-      { path: 'caja', element: <div className="p-4">Caja (Próximamente)</div> },
+      { path: 'vendedores', element: <VendedoresPage /> },
+      { path: 'garantias', element: <GarantiasPage /> },
+      { path: 'caja', element: <FinanzasPage /> },
       { path: 'finanzas', element: <FinanzasPage /> },
-      { path: 'cierres', element: <div className="p-4">Cierre semanal (Próximamente)</div> },
+      { path: 'cierres', element: <CierresPage /> },
     ],
   },
 ], {
