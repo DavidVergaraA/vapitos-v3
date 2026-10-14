@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { fetchProveedores, guardarProveedor } from './proveedorService';
 import type { Proveedor } from '@/types/proveedores';
-import { rid } from '@/lib/supabase';
 
 export default function ProveedoresPage() {
   const queryClient = useQueryClient();
@@ -39,6 +38,7 @@ export default function ProveedoresPage() {
   });
 
   const openNewModal = () => {
+    mutation.reset();
     setEditingProveedor(null);
     setNombre('');
     setContacto('');
@@ -48,6 +48,7 @@ export default function ProveedoresPage() {
   };
 
   const openEditModal = (p: Proveedor) => {
+    mutation.reset();
     setEditingProveedor(p);
     setNombre(p.nombre);
     setContacto(p.contacto || '');
@@ -59,12 +60,14 @@ export default function ProveedoresPage() {
   const closeModal = () => {
     setModalOpen(false);
     setEditingProveedor(null);
+    mutation.reset();
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!nombre.trim()) return;
     mutation.mutate({
-      p_proveedor_id: editingProveedor ? editingProveedor.id : rid(),
+      p_proveedor_id: editingProveedor ? editingProveedor.id : null,
       p_nombre: nombre.trim(),
       p_contacto: contacto.trim() || null,
       p_notas: notas.trim() || null,

@@ -10,7 +10,7 @@ export interface Proveedor {
 
 export interface GuardarProveedorPayload {
   p_request_id: string;
-  p_proveedor_id: string;
+  p_proveedor_id: string | null;
   p_nombre: string;
   p_contacto: string | null;
   p_notas: string | null;

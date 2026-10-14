@@ -7,7 +7,10 @@ export async function fetchProveedores(): Promise<Proveedor[]> {
     .select('*')
     .order('nombre', { ascending: true });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error('Error al consultar proveedores:', error);
+    throw new Error(error.message);
+  }
   return data || [];
 }
 
@@ -19,6 +22,7 @@ export async function guardarProveedor(proveedor: Omit<GuardarProveedorPayload, 
 
   const { error } = await supabase.rpc('rpc_guardar_proveedor', payload);
   if (error) {
+    console.error('Error en rpc_guardar_proveedor:', error);
     throw new Error(error.message || 'Error al guardar el proveedor');
   }
 }
