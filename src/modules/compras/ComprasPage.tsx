@@ -389,8 +389,8 @@ export default function ComprasPage() {
 
       {/* New Purchase Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-slate-200 my-8">
+        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-slate-900/40 p-2 backdrop-blur-xs sm:p-4">
+          <div className="mx-auto my-2 max-h-[calc(100dvh-1rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-1">Registrar Nueva Compra</h2>
             <p className="text-xs text-slate-500 mb-4">Ingresa la orden con los productos y costos pactados.</p>
 
@@ -528,8 +528,8 @@ export default function ComprasPage() {
 
               {/* Items List Preview */}
               {items.length > 0 && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-xs text-left">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full min-w-[34rem] text-left text-xs">
                     <thead className="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
                       <tr>
                         <th className="p-2">Ítem</th>
@@ -588,18 +588,18 @@ export default function ComprasPage() {
               </div>
 
               {/* Modal footer */}
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"
+                  className="w-full rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 sm:w-auto"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isPending || items.length === 0}
-                  className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50"
+                  className="w-full rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
                 >
                   {createMutation.isPending ? 'Registrando...' : 'Registrar compra'}
                 </button>
@@ -611,8 +611,8 @@ export default function ComprasPage() {
 
       {/* Purchase receipt modal */}
       {receivingCompra && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-slate-200 my-8">
+        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-slate-900/40 p-2 backdrop-blur-xs sm:p-4">
+          <div className="mx-auto my-2 max-h-[calc(100dvh-1rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-4 shadow-xl sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-1">Recibir mercancía</h2>
             <p className="text-xs text-slate-500 mb-4">Registra únicamente las unidades físicas recibidas en esta entrega.</p>
             <form onSubmit={submitReceipt} className="space-y-3">
@@ -625,8 +625,8 @@ export default function ComprasPage() {
                 const recibido = detalle.cantidad_recibida || 0;
                 const pendiente = Math.max(0, detalle.cantidad_pedida - recibido);
                 return (
-                  <div key={detalle.id} className="rounded-xl border border-slate-200 p-3 grid grid-cols-[1fr_7rem] gap-3 items-end">
-                    <div>
+                  <div key={detalle.id} className="grid grid-cols-1 items-end gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-800">{varianteLabels.get(detalle.variante_id) || `Variante ${detalle.variante_id.slice(0, 8)}…`}</p>
                       <p className="text-xs text-slate-500">Pedida: {detalle.cantidad_pedida} · Recibida: {recibido} · Pendiente: {pendiente}</p>
                     </div>
@@ -651,9 +651,9 @@ export default function ComprasPage() {
                   </div>
                 );
               })}
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button type="button" onClick={() => { setReceivingCompra(null); setReceiptError(null); }} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors">Cancelar</button>
-                <button type="submit" disabled={receiveMutation.isPending} className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50">
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => { setReceivingCompra(null); setReceiptError(null); }} className="w-full rounded-xl px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 sm:w-auto">Cancelar</button>
+                <button type="submit" disabled={receiveMutation.isPending} className="w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 sm:w-auto">
                   {receiveMutation.isPending ? 'Recibiendo...' : 'Confirmar recepción'}
                 </button>
               </div>
