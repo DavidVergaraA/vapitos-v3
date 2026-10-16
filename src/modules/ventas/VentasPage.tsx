@@ -268,7 +268,7 @@ export default function VentasPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-[1600px] space-y-6 overflow-x-clip">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <p className="text-xs font-bold text-blue-600 tracking-wider uppercase">Punto de venta</p>
@@ -287,9 +287,9 @@ export default function VentasPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_24rem] gap-6 items-start">
-        <section className="space-y-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)] 2xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)]">
+        <section className="min-w-0 space-y-5">
+          <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2"><Package size={18} className="text-blue-600" /><div><h2 className="font-bold text-slate-900">Productos para la venta</h2><p className="text-xs text-slate-500">Elige una variante y agrégala al carrito.</p></div></div>
               {!inventarioLoading && !inventarioError && (
@@ -334,7 +334,7 @@ export default function VentasPage() {
 
         </section>
 
-        <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
+        <aside className="min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 xl:sticky xl:top-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2"><ShoppingCart size={18} className="text-blue-600" /><h2 className="font-bold text-slate-900">Carrito</h2></div>
             {carrito.length > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{carrito.length} {carrito.length === 1 ? 'línea' : 'líneas'}</span>}

@@ -4,8 +4,13 @@ import { Boxes, Search, RefreshCw, AlertCircle, X } from 'lucide-react';
 import { fetchInventarioDisponible } from './inventarioService';
 import { money } from '@/lib/supabase';
 
+type InventarioSort = 'marca' | 'puffs' | 'reciente' | 'costo';
+
 export default function InventarioPage() {
   const [search, setSearch] = useState('');
+  const [marca, setMarca] = useState('');
+  const [puffs, setPuffs] = useState('');
+  const [orden, setOrden] = useState<InventarioSort>('marca');
 
   // Queries
   const {
@@ -19,27 +24,54 @@ export default function InventarioPage() {
     queryFn: fetchInventarioDisponible,
   });
 
-  // Filtered list by search
+  const marcasDisponibles = useMemo(
+    () => [...new Set(unidades.map((unidad) => unidad.marca))].sort((a, b) => a.localeCompare(b)),
+    [unidades],
+  );
+  const puffsDisponibles = useMemo(
+    () => [...new Set(unidades.flatMap((unidad) => unidad.puffs == null ? [] : [unidad.puffs]))].sort((a, b) => a - b),
+    [unidades],
+  );
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return unidades;
-    const q = search.toLowerCase();
-    return unidades.filter((u) =>
-      u.unidad_id.toLowerCase().includes(q) ||
-      u.codigo_unidad.toLowerCase().includes(q) ||
-      u.producto_id.toLowerCase().includes(q) ||
-      u.marca.toLowerCase().includes(q) ||
-      u.modelo.toLowerCase().includes(q) ||
-      u.variante_id.toLowerCase().includes(q) ||
-      u.sabor.toLowerCase().includes(q) ||
-      u.lote_id.toLowerCase().includes(q)
-    );
-  }, [unidades, search]);
+    const q = search.trim().toLowerCase();
+    return unidades
+      .filter((unidad) => {
+        const coincideBusqueda = !q || [
+          unidad.unidad_id,
+          unidad.codigo_unidad,
+          unidad.producto_id,
+          unidad.marca,
+          unidad.modelo,
+          unidad.variante_id,
+          unidad.sabor,
+          unidad.lote_id,
+        ].some((valor) => valor.toLowerCase().includes(q));
+        const coincideMarca = !marca || unidad.marca === marca;
+        const coincidePuffs = !puffs || String(unidad.puffs ?? '') === puffs;
+        return coincideBusqueda && coincideMarca && coincidePuffs;
+      })
+      .sort((a, b) => {
+        if (orden === 'puffs') return (b.puffs ?? -1) - (a.puffs ?? -1) || a.marca.localeCompare(b.marca) || a.modelo.localeCompare(b.modelo);
+        if (orden === 'reciente') return b.recibido_at.localeCompare(a.recibido_at);
+        if (orden === 'costo') return a.costo_actual - b.costo_actual || a.marca.localeCompare(b.marca);
+        return a.marca.localeCompare(b.marca) || a.modelo.localeCompare(b.modelo) || a.sabor.localeCompare(b.sabor);
+      });
+  }, [unidades, search, marca, puffs, orden]);
+
+  const hayFiltrosActivos = Boolean(search || marca || puffs || orden !== 'marca');
+  const limpiarFiltros = () => {
+    setSearch('');
+    setMarca('');
+    setPuffs('');
+    setOrden('marca');
+  };
 
   const total = unidades.length;
   const totalVariantes = new Set(unidades.map((unidad) => unidad.variante_id)).size;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-[1600px] space-y-6 overflow-x-clip">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -76,16 +108,24 @@ export default function InventarioPage() {
         </div>
       )}
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-xl">
+      <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Buscar y organizar</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Combina búsqueda, marca y capacidad para encontrar unidades rápidamente.</p>
+            </div>
+            <p className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">{isLoading ? 'Cargando…' : `${filtered.length} de ${total} unidad(es)`}</p>
+          </div>
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(150px,1fr)_minmax(130px,0.8fr)_minmax(160px,1fr)]">
+            <div className="relative min-w-0">
             <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar producto, sabor, código, lote o ID..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-10 text-sm transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-10 text-sm transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {search && (
               <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700" aria-label="Limpiar búsqueda">
@@ -93,7 +133,24 @@ export default function InventarioPage() {
               </button>
             )}
           </div>
-          <p className="shrink-0 text-xs text-slate-500">{isLoading ? 'Cargando…' : `${filtered.length} de ${total} unidad(es)`}</p>
+            <select aria-label="Filtrar por marca" value={marca} onChange={(event) => setMarca(event.target.value)} className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Todas las marcas</option>
+              {marcasDisponibles.map((marcaDisponible) => <option key={marcaDisponible} value={marcaDisponible}>{marcaDisponible}</option>)}
+            </select>
+            <select aria-label="Filtrar por puffs" value={puffs} onChange={(event) => setPuffs(event.target.value)} className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Todos los puffs</option>
+              {puffsDisponibles.map((cantidadPuffs) => <option key={cantidadPuffs} value={cantidadPuffs}>{cantidadPuffs} puffs</option>)}
+            </select>
+            <div className="flex min-w-0 gap-2">
+              <select aria-label="Ordenar inventario" value={orden} onChange={(event) => setOrden(event.target.value as InventarioSort)} className="w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="marca">Orden: marca y modelo</option>
+                <option value="puffs">Orden: más puffs</option>
+                <option value="reciente">Orden: recepción reciente</option>
+                <option value="costo">Orden: costo actual</option>
+              </select>
+              {hayFiltrosActivos && <button type="button" onClick={limpiarFiltros} className="shrink-0 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Limpiar</button>}
+            </div>
+          </div>
         </div>
       </div>
 
