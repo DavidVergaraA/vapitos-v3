@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Boxes, Search, RefreshCw, AlertCircle } from 'lucide-react';
+import { Boxes, Search, RefreshCw, AlertCircle, X } from 'lucide-react';
 import { fetchInventarioDisponible } from './inventarioService';
 import { money } from '@/lib/supabase';
 
@@ -36,6 +36,7 @@ export default function InventarioPage() {
   }, [unidades, search]);
 
   const total = unidades.length;
+  const totalVariantes = new Set(unidades.map((unidad) => unidad.variante_id)).size;
 
   return (
     <div className="space-y-6">
@@ -58,18 +59,41 @@ export default function InventarioPage() {
         </button>
       </div>
 
-      {!isLoading && !isError && <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3 text-emerald-800"><Boxes size={20} /><span className="text-sm">Disponibilidad actual: <strong>{total}</strong> unidad(es).</span></div>}
+      {!isLoading && !isError && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Unidades disponibles</p>
+            <p className="mt-1 text-2xl font-black text-blue-900">{total}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Variantes en stock</p>
+            <p className="mt-1 text-2xl font-black text-slate-900">{totalVariantes}</p>
+          </div>
+          <div className="col-span-2 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-emerald-800 sm:col-span-1">
+            <Boxes size={20} className="shrink-0" />
+            <span className="text-sm">Cada fila representa una unidad física trazable.</span>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-        <div className="relative w-full md:w-96">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por producto, sabor, código, lote o ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xl">
+            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar producto, sabor, código, lote o ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-10 text-sm transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700" aria-label="Limpiar búsqueda">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          <p className="shrink-0 text-xs text-slate-500">{isLoading ? 'Cargando…' : `${filtered.length} de ${total} unidad(es)`}</p>
         </div>
       </div>
 
@@ -98,10 +122,10 @@ export default function InventarioPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Unidad</th>
                   <th className="px-4 py-3">Producto</th>
@@ -139,7 +163,39 @@ export default function InventarioPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
+          <div className="divide-y divide-slate-100 md:hidden">
+            {filtered.map((unidad) => {
+              const fechaIngreso = unidad.recibido_at
+                ? new Date(unidad.recibido_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—';
+              return (
+                <article key={unidad.unidad_id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs font-bold text-blue-700">{unidad.codigo_unidad}</p>
+                      <h2 className="mt-1 break-words text-sm font-bold text-slate-900">{unidad.marca} {unidad.modelo}</h2>
+                      <p className="mt-0.5 text-sm text-slate-600">{unidad.sabor}</p>
+                    </div>
+                    {unidad.puffs != null && <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{unidad.puffs} puffs</span>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-slate-400">Costo origen</p><p className="mt-0.5 font-semibold text-slate-700">{money(unidad.costo_origen)}</p></div>
+                    <div className="rounded-lg bg-slate-50 p-2"><p className="text-slate-400">Costo actual</p><p className="mt-0.5 font-semibold text-slate-700">{money(unidad.costo_actual)}</p></div>
+                  </div>
+                  <div className="space-y-1 text-[10px] text-slate-400">
+                    <p>Lote: <span className="font-mono text-slate-500">{unidad.lote_id}</span> · Recibido: {fechaIngreso}</p>
+                    <details>
+                      <summary className="cursor-pointer text-blue-600">Ver identificadores</summary>
+                      <p className="mt-1 break-all">Unidad: {unidad.unidad_id}</p>
+                      <p className="break-all">Producto: {unidad.producto_id}</p>
+                      <p className="break-all">Variante: {unidad.variante_id}</p>
+                    </details>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-400">
             Mostrando {filtered.length} de {unidades.length} unidades
           </div>
         </div>

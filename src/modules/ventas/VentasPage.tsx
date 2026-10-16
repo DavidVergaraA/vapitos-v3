@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
-  AlertCircle, CheckCircle2, CreditCard, Package, Plus,
+  AlertCircle, Boxes, CheckCircle2, CreditCard, Package, Plus,
   RefreshCw, ShoppingCart, Trash2, UserRound,
 } from 'lucide-react';
 import { money } from '@/lib/supabase';
@@ -43,6 +44,7 @@ export default function VentasPage() {
   const [precioUnitario, setPrecioUnitario] = useState<number | ''>('');
   const [carrito, setCarrito] = useState<LineaCarrito[]>([]);
   const [descuento, setDescuento] = useState<number | ''>('');
+  const [noPagadaCompleta, setNoPagadaCompleta] = useState(false);
   const [abonoInicial, setAbonoInicial] = useState<number | ''>('');
   const [metodoPago, setMetodoPago] = useState<MetodoPagoVenta | ''>('');
   const [vendedorExternoId, setVendedorExternoId] = useState('');
@@ -122,7 +124,7 @@ export default function VentasPage() {
   );
   const descuentoTotal = numberOrZero(descuento);
   const totalFinal = Math.max(0, subtotal - descuentoTotal);
-  const abono = numberOrZero(abonoInicial);
+  const abono = noPagadaCompleta ? numberOrZero(abonoInicial) : totalFinal;
   const costoCompraTotal = carrito.reduce((total, linea) => total + linea.costo_compra_total, 0);
   const utilidadEstimada = totalFinal - costoCompraTotal;
   const comisionPorcentajeCalculada = Math.round(
@@ -146,6 +148,7 @@ export default function VentasPage() {
       setConfirmationOpen(false);
       setCarrito([]);
       setDescuento('');
+      setNoPagadaCompleta(false);
       setAbonoInicial('');
       setMetodoPago('');
       setVendedorExternoId('');
@@ -218,7 +221,7 @@ export default function VentasPage() {
     if (carrito.length === 0) return 'Agrega al menos una línea al carrito.';
     if (descuentoTotal < 0 || descuentoTotal > subtotal) return 'El descuento debe estar entre cero y el subtotal.';
     if (abono < 0 || abono > totalFinal) return 'El abono no puede ser negativo ni superar el total final.';
-    if (abono > 0 && !metodoPago) return 'Selecciona el método de pago del abono inicial.';
+    if (abono > 0 && !metodoPago) return 'Selecciona el método de pago de la venta.';
     if (!vendedorExternoId && (destinoUtilidad || montoComision !== '')) return 'La comisión y su destino requieren un vendedor externo.';
     if (vendedorExternoId && !destinoUtilidad) return 'Selecciona el destino de utilidad del vendedor externo.';
     if (vendedorExternoId && modoComision === 'porcentaje' && (
@@ -286,8 +289,15 @@ export default function VentasPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_24rem] gap-6 items-start">
         <section className="space-y-5">
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-4"><Package size={18} className="text-blue-600" /><h2 className="font-bold text-slate-900">Inventario disponible</h2></div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2"><Package size={18} className="text-blue-600" /><div><h2 className="font-bold text-slate-900">Productos para la venta</h2><p className="text-xs text-slate-500">Elige una variante y agrégala al carrito.</p></div></div>
+              {!inventarioLoading && !inventarioError && (
+                <Link to="/inventario" className="inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 sm:self-auto">
+                  <Boxes size={15} /> Ver inventario completo
+                </Link>
+              )}
+            </div>
             {inventarioLoading ? (
               <div className="py-8 text-center text-sm text-slate-500"><RefreshCw size={20} className="animate-spin mx-auto mb-2 text-blue-600" />Cargando inventario...</div>
             ) : inventarioError ? (
@@ -296,6 +306,10 @@ export default function VentasPage() {
               <div className="py-8 text-center text-sm text-slate-500">No hay unidades disponibles para vender.</div>
             ) : (
               <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{variantesDisponibles.reduce((total, variante) => total + variante.disponibles, 0)} unidades disponibles</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{variantesDisponibles.length} variantes</span>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className="block text-xs font-semibold text-slate-700 mb-1">Producto</label><select value={productoId} onChange={(event) => { setProductoId(event.target.value); setVarianteId(''); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Selecciona un producto...</option>{productosDisponibles.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre}</option>)}</select></div>
                   <div><label className="block text-xs font-semibold text-slate-700 mb-1">Sabor / variante</label><select value={varianteId} disabled={!productoId} onChange={(event) => setVarianteId(event.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"><option value="">Selecciona una variante...</option>{variantesDelProducto.map((variante) => <option key={variante.variante_id} value={variante.variante_id}>{variante.sabor} · {variante.disponibles} disponibles</option>)}</select></div>
@@ -318,26 +332,66 @@ export default function VentasPage() {
             )}
           </div>
 
-          {!inventarioLoading && !inventarioError && variantesDisponibles.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100"><h2 className="font-bold text-slate-900">Variantes disponibles</h2></div>
-              <div className="sales-scroll-area divide-y divide-slate-100 xl:max-h-[45dvh] xl:overflow-y-auto xl:overscroll-contain">{variantesDisponibles.map((variante) => <div key={variante.variante_id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm"><div><p className="font-semibold text-slate-800">{variante.producto}</p><p className="text-xs text-slate-500">{variante.sabor}</p></div><span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">{variante.disponibles} disponibles</span></div>)}</div>
-            </div>
-          )}
         </section>
 
-        <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2"><ShoppingCart size={18} className="text-blue-600" /><h2 className="font-bold text-slate-900">Carrito</h2></div>
             {carrito.length > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{carrito.length} {carrito.length === 1 ? 'línea' : 'líneas'}</span>}
           </div>
-          {carrito.length === 0 ? <p className="py-4 text-center text-sm text-slate-500">Tu carrito está vacío.</p> : <div className="sales-scroll-area space-y-3 xl:max-h-[35dvh] xl:overflow-y-auto xl:overscroll-contain xl:pr-2">{carrito.map((linea) => <div key={linea.variante_id} className="border-b border-slate-100 pb-3 last:border-0"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold text-slate-800">{linea.producto}</p><p className="text-xs text-slate-500">{linea.sabor} · {linea.cantidad} × {money(linea.precio_unitario)}</p></div><button type="button" onClick={() => quitarLinea(linea.variante_id)} className="text-red-500 hover:text-red-700 p-1" aria-label="Quitar línea"><Trash2 size={16} /></button></div><p className="mt-1 text-sm font-bold text-slate-800">{money(linea.cantidad * linea.precio_unitario)}</p><p className="mt-1 text-xs text-slate-500">Costo de compra estimado: {money(linea.costo_compra_total)}</p></div>)}</div>}
+          {carrito.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-5 text-center text-sm text-slate-500">Tu carrito está vacío. Selecciona una variante para empezar.</p> : <div className="space-y-3">{carrito.map((linea) => <div key={linea.variante_id} className="border-b border-slate-100 pb-3 last:border-0"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold text-slate-800">{linea.producto}</p><p className="text-xs text-slate-500">{linea.sabor} · {linea.cantidad} × {money(linea.precio_unitario)}</p></div><button type="button" onClick={() => quitarLinea(linea.variante_id)} className="text-red-500 hover:text-red-700 p-1" aria-label="Quitar línea"><Trash2 size={16} /></button></div><p className="mt-1 text-sm font-bold text-slate-800">{money(linea.cantidad * linea.precio_unitario)}</p><p className="mt-1 text-xs text-slate-500">Costo de compra estimado: {money(linea.costo_compra_total)}</p></div>)}</div>}
 
           <div className="space-y-3 pt-3 border-t border-slate-100">
             <div><label className="block text-xs font-semibold text-slate-700 mb-1">Descuento total</label><input type="number" min="0" max={subtotal} value={descuento} onChange={(event) => { setDescuento(event.target.value === '' ? '' : Number(event.target.value)); if (modoComision === 'porcentaje') setMontoComision(''); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
             <div className="rounded-xl bg-slate-50 p-3 space-y-1 text-sm"><div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{money(subtotal)}</span></div><div className="flex justify-between text-slate-600"><span>Descuento</span><span>- {money(descuentoTotal)}</span></div><div className="flex justify-between font-black text-slate-900 pt-1 border-t border-slate-200"><span>Total final</span><span>{money(totalFinal)}</span></div></div>
-            <div><label className="block text-xs font-semibold text-slate-700 mb-1">Abono inicial opcional</label><input type="number" min="0" max={totalFinal} value={abonoInicial} onChange={(event) => { const next = event.target.value === '' ? '' : Number(event.target.value); setAbonoInicial(next); if (next === '' || next === 0) setMetodoPago(''); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
-            {abono > 0 && <div><label className="block text-xs font-semibold text-slate-700 mb-1">Método de pago *</label><select value={metodoPago} onChange={(event) => setMetodoPago(event.target.value as MetodoPagoVenta)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Selecciona...</option><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option></select></div>}
+            <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={noPagadaCompleta}
+                onChange={(event) => {
+                  const marcada = event.target.checked;
+                  setNoPagadaCompleta(marcada);
+                  setAbonoInicial('');
+                  setMetodoPago('');
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>
+                <span className="block font-semibold">No se pagó completamente (abono o fiado)</span>
+                <span className="mt-0.5 block text-xs text-slate-500">Desmárcalo si el cliente pagó el total de la venta.</span>
+              </span>
+            </label>
+            {noPagadaCompleta ? (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">¿Cuánto abonó ahora? (puede ser $0 si quedó fiado)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={totalFinal}
+                  value={abonoInicial}
+                  onChange={(event) => {
+                    const next = event.target.value === '' ? '' : Number(event.target.value);
+                    setAbonoInicial(next);
+                    if (next === '' || next === 0) setMetodoPago('');
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ) : (
+              <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                Pago completo: {money(totalFinal)}
+              </p>
+            )}
+            {abono > 0 && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Método de pago *</label>
+                <select value={metodoPago} onChange={(event) => setMetodoPago(event.target.value as MetodoPagoVenta)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Selecciona...</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="transferencia">Transferencia</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3 border-t border-slate-100 pt-3">
@@ -426,7 +480,7 @@ export default function VentasPage() {
         </aside>
       </div>
 
-      {confirmationOpen && <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"><div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200"><h2 className="text-xl font-bold text-slate-900">Confirmar venta</h2><p className="text-sm text-slate-500 mt-2">Se registrarán {carrito.reduce((total, linea) => total + linea.cantidad, 0)} unidad(es) por un total de <strong className="text-slate-800">{money(totalFinal)}</strong>.</p>{abono > 0 && <p className="text-sm text-slate-500 mt-2">Abono inicial: {money(abono)} por {metodoPago}.</p>}<div className="flex justify-end gap-2 mt-6"><button type="button" onClick={() => setConfirmationOpen(false)} disabled={ventaMutation.isPending} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button><button type="button" onClick={confirmarVenta} disabled={ventaMutation.isPending} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-50">{ventaMutation.isPending ? 'Registrando...' : 'Confirmar y registrar'}</button></div></div></div>}
+      {confirmationOpen && <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"><div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200"><h2 className="text-xl font-bold text-slate-900">Confirmar venta</h2><p className="text-sm text-slate-500 mt-2">Se registrarán {carrito.reduce((total, linea) => total + linea.cantidad, 0)} unidad(es) por un total de <strong className="text-slate-800">{money(totalFinal)}</strong>.</p>{abono === totalFinal ? <p className="text-sm text-emerald-700 mt-2">Pagada completamente por {metodoPago}: {money(abono)}.</p> : abono > 0 ? <p className="text-sm text-slate-500 mt-2">Abono de {money(abono)} por {metodoPago}. Queda pendiente: {money(totalFinal - abono)}.</p> : <p className="text-sm text-amber-700 mt-2">Queda fiado el total: {money(totalFinal)}.</p>}<div className="flex justify-end gap-2 mt-6"><button type="button" onClick={() => setConfirmationOpen(false)} disabled={ventaMutation.isPending} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button><button type="button" onClick={confirmarVenta} disabled={ventaMutation.isPending} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-50">{ventaMutation.isPending ? 'Registrando...' : 'Confirmar y registrar'}</button></div></div></div>}
       <HistorialVentas />
     </div>
   );
