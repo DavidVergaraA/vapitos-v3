@@ -41,6 +41,7 @@ export default function HistorialVentas() {
         queryClient.invalidateQueries({ queryKey: ['ventas-estado'] }),
         queryClient.invalidateQueries({ queryKey: ['detalle-venta', selectedVentaId] }),
         queryClient.invalidateQueries({ queryKey: ['comisiones'] }),
+        queryClient.invalidateQueries({ queryKey: ['saldo-transferencias'] }),
       ]);
     },
   });

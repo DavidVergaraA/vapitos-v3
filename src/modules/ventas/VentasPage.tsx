@@ -16,9 +16,24 @@ import type { DestinoUtilidadExterna, ItemVentaInput, MetodoPagoVenta, Registrar
 interface LineaCarrito extends ItemVentaInput {
   producto: string;
   sabor: string;
+  costo_compra_total: number;
 }
 
+type ModoComision = 'porcentaje' | 'valor';
+
 const numberOrZero = (value: number | '') => value === '' ? 0 : value;
+
+function costoCompraVariante(
+  inventario: Awaited<ReturnType<typeof fetchInventarioDisponibleVenta>>,
+  varianteId: string,
+  cantidadUnidades: number,
+): number {
+  return inventario
+    .filter((unidad) => unidad.variante_id === varianteId)
+    .sort((a, b) => a.recibido_at.localeCompare(b.recibido_at) || a.lote_id.localeCompare(b.lote_id))
+    .slice(0, cantidadUnidades)
+    .reduce((total, unidad) => total + unidad.costo_origen, 0);
+}
 
 export default function VentasPage() {
   const queryClient = useQueryClient();
@@ -32,7 +47,9 @@ export default function VentasPage() {
   const [metodoPago, setMetodoPago] = useState<MetodoPagoVenta | ''>('');
   const [vendedorExternoId, setVendedorExternoId] = useState('');
   const [destinoUtilidad, setDestinoUtilidad] = useState<DestinoUtilidadExterna | ''>('');
-  const [comisionManual, setComisionManual] = useState<number | ''>('');
+  const [modoComision, setModoComision] = useState<ModoComision>('porcentaje');
+  const [porcentajeComision, setPorcentajeComision] = useState<number | ''>(60);
+  const [montoComision, setMontoComision] = useState<number | ''>('');
   const [notas, setNotas] = useState('');
   const [lineError, setLineError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,6 +123,21 @@ export default function VentasPage() {
   const descuentoTotal = numberOrZero(descuento);
   const totalFinal = Math.max(0, subtotal - descuentoTotal);
   const abono = numberOrZero(abonoInicial);
+  const costoCompraTotal = carrito.reduce((total, linea) => total + linea.costo_compra_total, 0);
+  const utilidadEstimada = totalFinal - costoCompraTotal;
+  const comisionPorcentajeCalculada = Math.round(
+    Math.max(0, utilidadEstimada) * numberOrZero(porcentajeComision) / 100,
+  );
+  const comisionFinal = modoComision === 'porcentaje'
+    ? (montoComision === '' ? comisionPorcentajeCalculada : montoComision)
+    : numberOrZero(montoComision);
+  const costoCompraSeleccionada = varianteId
+    ? costoCompraVariante(
+        inventario,
+        varianteId,
+        (carrito.find((linea) => linea.variante_id === varianteId)?.cantidad || 0) + numberOrZero(cantidad),
+      ) - (carrito.find((linea) => linea.variante_id === varianteId)?.costo_compra_total || 0)
+    : 0;
 
   const ventaMutation = useMutation({
     mutationFn: registrarVenta,
@@ -118,12 +150,18 @@ export default function VentasPage() {
       setMetodoPago('');
       setVendedorExternoId('');
       setDestinoUtilidad('');
-      setComisionManual('');
+      setModoComision('porcentaje');
+      setPorcentajeComision(60);
+      setMontoComision('');
       setNotas('');
       setFormError(null);
-      await queryClient.invalidateQueries({ queryKey: ['ventas-estado'] });
-      await queryClient.invalidateQueries({ queryKey: ['inventario-disponible-venta'] });
-      await queryClient.invalidateQueries({ queryKey: ['inventario-disponible'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['ventas-estado'] }),
+        queryClient.invalidateQueries({ queryKey: ['comisiones'] }),
+        queryClient.invalidateQueries({ queryKey: ['saldo-transferencias'] }),
+        queryClient.invalidateQueries({ queryKey: ['inventario-disponible-venta'] }),
+        queryClient.invalidateQueries({ queryKey: ['inventario-disponible'] }),
+      ]);
     },
   });
 
@@ -147,6 +185,7 @@ export default function VentasPage() {
       setLineError(`Solo hay ${varianteSeleccionada.disponibles} unidades disponibles de esta variante.`);
       return;
     }
+    const costoCompraLinea = costoCompraVariante(inventario, varianteId, cantidadEnCarrito + cantidadSolicitada);
 
     setCarrito((actual) => {
       const existente = actual.find((linea) => linea.variante_id === varianteId);
@@ -157,19 +196,22 @@ export default function VentasPage() {
           precio_unitario: precio,
           producto: varianteSeleccionada.producto,
           sabor: varianteSeleccionada.sabor,
+          costo_compra_total: costoCompraLinea,
         }];
       }
       return actual.map((linea) => linea.variante_id === varianteId
-        ? { ...linea, cantidad: linea.cantidad + cantidadSolicitada, precio_unitario: precio }
+        ? { ...linea, cantidad: linea.cantidad + cantidadSolicitada, precio_unitario: precio, costo_compra_total: costoCompraLinea }
         : linea,
       );
     });
     setLineError(null);
+    if (modoComision === 'porcentaje') setMontoComision('');
     resetSeleccion();
   };
 
   const quitarLinea = (variante: string) => {
     setCarrito((actual) => actual.filter((linea) => linea.variante_id !== variante));
+    if (modoComision === 'porcentaje') setMontoComision('');
   };
 
   const validarFormulario = () => {
@@ -177,9 +219,20 @@ export default function VentasPage() {
     if (descuentoTotal < 0 || descuentoTotal > subtotal) return 'El descuento debe estar entre cero y el subtotal.';
     if (abono < 0 || abono > totalFinal) return 'El abono no puede ser negativo ni superar el total final.';
     if (abono > 0 && !metodoPago) return 'Selecciona el método de pago del abono inicial.';
-    if (!vendedorExternoId && (destinoUtilidad || comisionManual !== '')) return 'La comisión y su destino requieren un vendedor externo.';
-    if (vendedorExternoId && (!destinoUtilidad || comisionManual === '' || numberOrZero(comisionManual) < 0)) {
-      return 'Selecciona el destino e indica una comisión manual válida.';
+    if (!vendedorExternoId && (destinoUtilidad || montoComision !== '')) return 'La comisión y su destino requieren un vendedor externo.';
+    if (vendedorExternoId && !destinoUtilidad) return 'Selecciona el destino de utilidad del vendedor externo.';
+    if (vendedorExternoId && modoComision === 'porcentaje' && (
+      porcentajeComision === '' || porcentajeComision < 0 || porcentajeComision > 100
+    )) {
+      return 'Indica un porcentaje de comisión entre 0 y 100.';
+    }
+    if (vendedorExternoId && modoComision === 'valor' && (
+      montoComision === '' || numberOrZero(montoComision) < 0
+    )) {
+      return 'Indica un valor de comisión válido.';
+    }
+    if (vendedorExternoId && comisionFinal < 0) {
+      return 'La comisión no puede ser negativa.';
     }
     return null;
   };
@@ -206,7 +259,7 @@ export default function VentasPage() {
       metodo_pago: abono > 0 ? metodoPago || null : null,
       vendedor_externo_id: vendedorExternoId || null,
       destino_utilidad_externa: vendedorExternoId ? destinoUtilidad || null : null,
-      comision_manual: vendedorExternoId ? numberOrZero(comisionManual) : null,
+      comision_manual: vendedorExternoId ? comisionFinal : null,
       notas: notas.trim() || null,
     });
   };
@@ -251,7 +304,14 @@ export default function VentasPage() {
                   <div><label className="block text-xs font-semibold text-slate-700 mb-1">Cantidad</label><input type="number" min="1" max={varianteSeleccionada?.disponibles} value={cantidad} onChange={(event) => setCantidad(event.target.value === '' ? '' : Number(event.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
                   <div><label className="block text-xs font-semibold text-slate-700 mb-1">Precio unitario (COP)</label><input type="number" min="0" value={precioUnitario} onChange={(event) => setPrecioUnitario(event.target.value === '' ? '' : Number(event.target.value))} placeholder="Ej. 30000" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
                 </div>
-                {varianteSeleccionada && <p className="text-xs text-slate-500">Disponibles: <strong>{varianteSeleccionada.disponibles}</strong> unidades de {varianteSeleccionada.producto} · {varianteSeleccionada.sabor}.</p>}
+                {varianteSeleccionada && (
+                  <div className="space-y-1 text-xs text-slate-500">
+                    <p>Disponibles: <strong>{varianteSeleccionada.disponibles}</strong> unidades de {varianteSeleccionada.producto} · {varianteSeleccionada.sabor}.</p>
+                    {numberOrZero(cantidad) > 0 && (
+                      <p>Costo de compra estimado para {numberOrZero(cantidad)} unidad(es): <strong>{money(costoCompraSeleccionada)}</strong>.</p>
+                    )}
+                  </div>
+                )}
                 {lineError && <p className="text-sm text-red-600">{lineError}</p>}
                 <button type="button" onClick={agregarLinea} disabled={!varianteSeleccionada} className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"><Plus size={17} />Agregar al carrito</button>
               </div>
@@ -261,23 +321,99 @@ export default function VentasPage() {
           {!inventarioLoading && !inventarioError && variantesDisponibles.length > 0 && (
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100"><h2 className="font-bold text-slate-900">Variantes disponibles</h2></div>
-              <div className="divide-y divide-slate-100 xl:max-h-[45dvh] xl:overflow-y-auto xl:overscroll-contain">{variantesDisponibles.map((variante) => <div key={variante.variante_id} className="px-5 py-3 flex items-center justify-between gap-3 text-sm"><div><p className="font-semibold text-slate-800">{variante.producto}</p><p className="text-xs text-slate-500">{variante.sabor}</p></div><span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-1">{variante.disponibles} disponibles</span></div>)}</div>
+              <div className="sales-scroll-area divide-y divide-slate-100 xl:max-h-[45dvh] xl:overflow-y-auto xl:overscroll-contain">{variantesDisponibles.map((variante) => <div key={variante.variante_id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm"><div><p className="font-semibold text-slate-800">{variante.producto}</p><p className="text-xs text-slate-500">{variante.sabor}</p></div><span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">{variante.disponibles} disponibles</span></div>)}</div>
             </div>
           )}
         </section>
 
-        <aside className="space-y-5 overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)]">
-          <div className="flex items-center gap-2"><ShoppingCart size={18} className="text-blue-600" /><h2 className="font-bold text-slate-900">Carrito</h2></div>
-          {carrito.length === 0 ? <p className="py-4 text-center text-sm text-slate-500">Tu carrito está vacío.</p> : <div className="space-y-3 xl:max-h-[35dvh] xl:overflow-y-auto xl:overscroll-contain xl:pr-1">{carrito.map((linea) => <div key={linea.variante_id} className="border-b border-slate-100 pb-3 last:border-0"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold text-slate-800">{linea.producto}</p><p className="text-xs text-slate-500">{linea.sabor} · {linea.cantidad} × {money(linea.precio_unitario)}</p></div><button type="button" onClick={() => quitarLinea(linea.variante_id)} className="text-red-500 hover:text-red-700 p-1" aria-label="Quitar línea"><Trash2 size={16} /></button></div><p className="mt-1 text-sm font-bold text-slate-800">{money(linea.cantidad * linea.precio_unitario)}</p></div>)}</div>}
+        <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2"><ShoppingCart size={18} className="text-blue-600" /><h2 className="font-bold text-slate-900">Carrito</h2></div>
+            {carrito.length > 0 && <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{carrito.length} {carrito.length === 1 ? 'línea' : 'líneas'}</span>}
+          </div>
+          {carrito.length === 0 ? <p className="py-4 text-center text-sm text-slate-500">Tu carrito está vacío.</p> : <div className="sales-scroll-area space-y-3 xl:max-h-[35dvh] xl:overflow-y-auto xl:overscroll-contain xl:pr-2">{carrito.map((linea) => <div key={linea.variante_id} className="border-b border-slate-100 pb-3 last:border-0"><div className="flex justify-between gap-3"><div><p className="text-sm font-semibold text-slate-800">{linea.producto}</p><p className="text-xs text-slate-500">{linea.sabor} · {linea.cantidad} × {money(linea.precio_unitario)}</p></div><button type="button" onClick={() => quitarLinea(linea.variante_id)} className="text-red-500 hover:text-red-700 p-1" aria-label="Quitar línea"><Trash2 size={16} /></button></div><p className="mt-1 text-sm font-bold text-slate-800">{money(linea.cantidad * linea.precio_unitario)}</p><p className="mt-1 text-xs text-slate-500">Costo de compra estimado: {money(linea.costo_compra_total)}</p></div>)}</div>}
 
           <div className="space-y-3 pt-3 border-t border-slate-100">
-            <div><label className="block text-xs font-semibold text-slate-700 mb-1">Descuento total</label><input type="number" min="0" max={subtotal} value={descuento} onChange={(event) => setDescuento(event.target.value === '' ? '' : Number(event.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+            <div><label className="block text-xs font-semibold text-slate-700 mb-1">Descuento total</label><input type="number" min="0" max={subtotal} value={descuento} onChange={(event) => { setDescuento(event.target.value === '' ? '' : Number(event.target.value)); if (modoComision === 'porcentaje') setMontoComision(''); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
             <div className="rounded-xl bg-slate-50 p-3 space-y-1 text-sm"><div className="flex justify-between text-slate-600"><span>Subtotal</span><span>{money(subtotal)}</span></div><div className="flex justify-between text-slate-600"><span>Descuento</span><span>- {money(descuentoTotal)}</span></div><div className="flex justify-between font-black text-slate-900 pt-1 border-t border-slate-200"><span>Total final</span><span>{money(totalFinal)}</span></div></div>
             <div><label className="block text-xs font-semibold text-slate-700 mb-1">Abono inicial opcional</label><input type="number" min="0" max={totalFinal} value={abonoInicial} onChange={(event) => { const next = event.target.value === '' ? '' : Number(event.target.value); setAbonoInicial(next); if (next === '' || next === 0) setMetodoPago(''); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
             {abono > 0 && <div><label className="block text-xs font-semibold text-slate-700 mb-1">Método de pago *</label><select value={metodoPago} onChange={(event) => setMetodoPago(event.target.value as MetodoPagoVenta)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Selecciona...</option><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option></select></div>}
           </div>
 
-          <div className="space-y-3 pt-3 border-t border-slate-100"><div className="flex items-center gap-2"><UserRound size={16} className="text-slate-500" /><h3 className="text-sm font-bold text-slate-800">Vendedor externo (opcional)</h3></div><select value={vendedorExternoId} onChange={(event) => { setVendedorExternoId(event.target.value); setDestinoUtilidad(''); setComisionManual(''); }} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Sin vendedor externo</option>{vendedores.map((vendedor) => <option key={vendedor.id} value={vendedor.id}>{vendedor.nombre}</option>)}</select>{vendedoresError && <p className="text-xs text-amber-700">No se pudieron cargar los vendedores externos. Puedes continuar sin seleccionar uno.</p>}{vendedorExternoId && <><div><label className="block text-xs font-semibold text-slate-700 mb-1">Destino de utilidad *</label><select value={destinoUtilidad} onChange={(event) => setDestinoUtilidad(event.target.value as DestinoUtilidadExterna)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="">Selecciona...</option><option value="reinversion">Reinversión</option><option value="resultado_distribuible">Resultado distribuible</option></select></div><div><label className="block text-xs font-semibold text-slate-700 mb-1">Comisión manual (COP) *</label><input type="number" min="0" value={comisionManual} onChange={(event) => setComisionManual(event.target.value === '' ? '' : Number(event.target.value))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div></>}</div>
+          <div className="space-y-3 border-t border-slate-100 pt-3">
+            <div className="flex items-center gap-2"><UserRound size={16} className="text-slate-500" /><h3 className="text-sm font-bold text-slate-800">Vendedor externo (opcional)</h3></div>
+            <select value={vendedorExternoId} onChange={(event) => { setVendedorExternoId(event.target.value); setDestinoUtilidad(''); setMontoComision(''); }} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Sin vendedor externo</option>
+              {vendedores.map((vendedor) => <option key={vendedor.id} value={vendedor.id}>{vendedor.nombre}</option>)}
+            </select>
+            {vendedoresError && <p className="text-xs text-amber-700">No se pudieron cargar los vendedores externos. Puedes continuar sin seleccionar uno.</p>}
+            {vendedorExternoId && (
+              <>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">Destino de utilidad *</label>
+                  <select value={destinoUtilidad} onChange={(event) => setDestinoUtilidad(event.target.value as DestinoUtilidadExterna)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Selecciona...</option>
+                    <option value="reinversion">Reinversión</option>
+                    <option value="resultado_distribuible">Resultado distribuible</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">Tipo de comisión *</label>
+                  <select
+                    value={modoComision}
+                    onChange={(event) => {
+                      setModoComision(event.target.value as ModoComision);
+                      setMontoComision('');
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="porcentaje">Porcentaje de utilidad</option>
+                    <option value="valor">Valor manual</option>
+                  </select>
+                </div>
+                {modoComision === 'porcentaje' && (
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700">Porcentaje de utilidad *</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={porcentajeComision}
+                        onChange={(event) => {
+                          setPorcentajeComision(event.target.value === '' ? '' : Number(event.target.value));
+                          setMontoComision('');
+                        }}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">%</span>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700">
+                    {modoComision === 'porcentaje' ? 'Comisión calculada (editable) *' : 'Valor de comisión *'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={modoComision === 'porcentaje' && montoComision === '' ? comisionPorcentajeCalculada : montoComision}
+                    onChange={(event) => setMontoComision(event.target.value === '' ? '' : Number(event.target.value))}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {modoComision === 'porcentaje' ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Utilidad estimada: {money(utilidadEstimada)} · Comisión sugerida: {money(comisionPorcentajeCalculada)}. Puedes editar el monto.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-500">Se enviará el valor indicado como comisión total de esta venta.</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
           <div><label className="block text-xs font-semibold text-slate-700 mb-1">Notas</label><textarea rows={2} value={notas} onChange={(event) => setNotas(event.target.value)} placeholder="Opcional" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
           {formError && <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm">{formError}</div>}

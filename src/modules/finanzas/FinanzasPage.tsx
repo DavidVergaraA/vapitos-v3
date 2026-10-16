@@ -108,6 +108,7 @@ export default function FinanzasPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['comisiones'] }),
         queryClient.invalidateQueries({ queryKey: ['movimientos-caja'] }),
+        queryClient.invalidateQueries({ queryKey: ['saldo-transferencias'] }),
       ]);
     },
   });

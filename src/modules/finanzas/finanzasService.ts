@@ -27,3 +27,33 @@ export async function fetchMovimientosCaja(): Promise<MovimientoCaja[]> {
 
   return data || [];
 }
+
+export async function fetchSaldoTransferencias(): Promise<number> {
+  const pageSize = 500;
+  let from = 0;
+  let saldo = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('movimientos_caja')
+      .select('direccion, monto')
+      .eq('metodo_pago', 'transferencia')
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error('Error al consultar saldo por transferencias:', error);
+      throw new Error(error.message);
+    }
+
+    const movimientos = data || [];
+    for (const movimiento of movimientos) {
+      if (movimiento.direccion === 'entrada') saldo += movimiento.monto;
+      else if (movimiento.direccion === 'salida') saldo -= movimiento.monto;
+      else throw new Error('Se encontró un movimiento de transferencia con dirección no reconocida.');
+    }
+
+    if (movimientos.length < pageSize) return saldo;
+    from += pageSize;
+  }
+}

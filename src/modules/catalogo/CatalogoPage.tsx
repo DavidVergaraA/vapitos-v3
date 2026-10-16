@@ -7,6 +7,8 @@ import {
 import { fetchProductos, guardarProducto, guardarVariante } from './catalogService';
 import type { ProductoConVariantes } from '@/types/catalog';
 
+const CATEGORIAS_PRODUCTO = ['Desechable', 'Recargable', 'Capsula/Pod', 'Bateria'] as const;
+
 export default function CatalogoPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -345,13 +347,19 @@ export default function CatalogoPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Categoría</label>
-                  <input
-                    type="text"
+                  <select
                     value={pCategoria}
                     onChange={(e) => setPCategoria(e.target.value)}
-                    placeholder="Ej. Desechable"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Selecciona una categoría...</option>
+                    {pCategoria && !CATEGORIAS_PRODUCTO.some((categoria) => categoria === pCategoria) && (
+                      <option value={pCategoria}>{pCategoria} (actual)</option>
+                    )}
+                    {CATEGORIAS_PRODUCTO.map((categoria) => (
+                      <option key={categoria} value={categoria}>{categoria}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Puffs</label>

@@ -11,6 +11,7 @@ import { fetchVentasEstado, fetchComisiones } from '@/modules/ventas/ventasServi
 import { fetchInventarioDisponible } from '@/modules/inventario/inventarioService';
 import { fetchGarantias } from '@/modules/garantias/garantiasService';
 import { fetchCierres } from '@/modules/cierres/cierresService';
+import { fetchSaldoTransferencias } from '@/modules/finanzas/finanzasService';
 
 export default function Dashboard() {
   const {
@@ -44,6 +45,17 @@ export default function Dashboard() {
   } = useQuery({
     queryKey: ['comisiones'],
     queryFn: fetchComisiones,
+  });
+
+  const {
+    data: saldoTransferencias = 0,
+    isLoading: transferenciasLoading,
+    isError: transferenciasError,
+    refetch: refetchTransferencias,
+    isFetching: transferenciasFetching,
+  } = useQuery({
+    queryKey: ['saldo-transferencias'],
+    queryFn: fetchSaldoTransferencias,
   });
 
   const {
@@ -104,6 +116,7 @@ export default function Dashboard() {
       refetchVentas(),
       refetchInventario(),
       refetchComisiones(),
+      refetchTransferencias(),
       refetchGarantias(),
       refetchCierres(),
     ]);
@@ -124,17 +137,17 @@ export default function Dashboard() {
         </div>
         <button
           onClick={recargarTodo}
-          disabled={ventasFetching || inventarioFetching || comisionesFetching || garantiasFetching || cierresFetching}
+          disabled={ventasFetching || inventarioFetching || comisionesFetching || transferenciasFetching || garantiasFetching || cierresFetching}
           className="self-start sm:self-auto inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
           title="Actualizar métricas"
         >
-          <RefreshCw size={16} className={ventasFetching || inventarioFetching || comisionesFetching || garantiasFetching || cierresFetching ? 'animate-spin' : ''} />
+          <RefreshCw size={16} className={ventasFetching || inventarioFetching || comisionesFetching || transferenciasFetching || garantiasFetching || cierresFetching ? 'animate-spin' : ''} />
           Actualizar datos
         </button>
       </div>
 
       {/* Main KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
         {/* Total Ventas */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -172,6 +185,26 @@ export default function Dashboard() {
               <p className="text-xl md:text-2xl font-black text-emerald-700">{money(metricas.recaudoNeto)}</p>
             )}
             <p className="text-[11px] text-slate-400 mt-1">Efectivo/bancos ingresado</p>
+          </div>
+        </div>
+
+        {/* Nequi esperado */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-cyan-700">Nequi esperado</span>
+            <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center">
+              <Wallet size={16} />
+            </div>
+          </div>
+          <div className="mt-3">
+            {transferenciasLoading ? (
+              <span className="text-lg font-bold text-slate-400">Cargando...</span>
+            ) : transferenciasError ? (
+              <span className="text-xs font-semibold text-red-600">No disponible</span>
+            ) : (
+              <p className="text-xl font-black text-cyan-800">{money(saldoTransferencias)}</p>
+            )}
+            <p className="mt-1 text-[11px] text-slate-400">Transferencias recibidas menos pagos registrados por transferencia. No incluye saldo inicial ni movimientos fuera del sistema.</p>
           </div>
         </div>
 

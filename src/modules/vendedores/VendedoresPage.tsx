@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, RefreshCw, AlertCircle, CheckCircle2, Search, X, UserCheck, UserX } from 'lucide-react';
+import { money } from '@/lib/supabase';
+import { fetchComisiones, fetchVentasEstado } from '@/modules/ventas/ventasService';
 import { fetchTodosVendedores, guardarVendedorExterno } from './vendedoresService';
 import type { VendedorExterno } from '@/types/ventas';
 
@@ -24,6 +26,53 @@ export default function VendedoresPage() {
     queryKey: ['todos-vendedores-externos'],
     queryFn: fetchTodosVendedores,
   });
+
+  const { data: ventas = [], isLoading: ventasLoading, isError: ventasError } = useQuery({
+    queryKey: ['ventas-estado'],
+    queryFn: fetchVentasEstado,
+  });
+
+  const { data: comisiones = [], isLoading: comisionesLoading, isError: comisionesError } = useQuery({
+    queryKey: ['comisiones'],
+    queryFn: fetchComisiones,
+  });
+
+  const estadisticasPorVendedor = useMemo(() => {
+    const resultado = new Map<string, {
+      cantidadVentas: number;
+      unidadesVendidas: number;
+      valorVentas: number;
+      recaudoNeto: number;
+      saldoComision: number;
+    }>();
+
+    for (const vendedor of vendedores) {
+      resultado.set(vendedor.id, {
+        cantidadVentas: 0,
+        unidadesVendidas: 0,
+        valorVentas: 0,
+        recaudoNeto: 0,
+        saldoComision: 0,
+      });
+    }
+
+    for (const venta of ventas) {
+      if (!venta.vendedor_externo_id) continue;
+      const estadistica = resultado.get(venta.vendedor_externo_id);
+      if (!estadistica) continue;
+      estadistica.cantidadVentas += 1;
+      estadistica.unidadesVendidas += venta.unidades_asignadas;
+      estadistica.valorVentas += venta.total_final;
+      estadistica.recaudoNeto += venta.recaudo_neto;
+    }
+
+    for (const comision of comisiones) {
+      const estadistica = resultado.get(comision.vendedor_externo_id);
+      if (estadistica) estadistica.saldoComision += comision.saldo_comision;
+    }
+
+    return resultado;
+  }, [vendedores, ventas, comisiones]);
 
   const mutation = useMutation({
     mutationFn: guardarVendedorExterno,
@@ -124,6 +173,12 @@ export default function VendedoresPage() {
         </div>
       )}
 
+      {(ventasError || comisionesError) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          Las estadísticas no están disponibles en este momento. Actualiza la página para volver a intentarlo.
+        </div>
+      )}
+
       {/* Search */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="relative w-full md:w-96">
@@ -163,9 +218,11 @@ export default function VendedoresPage() {
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="divide-y divide-slate-100">
-            {filtered.map((v) => (
-              <div key={v.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
-                <div>
+            {filtered.map((v) => {
+              const estadistica = estadisticasPorVendedor.get(v.id);
+              return (
+              <div key={v.id} className="grid grid-cols-1 gap-3 p-4 transition-colors hover:bg-slate-50 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900">{v.nombre}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
@@ -178,6 +235,37 @@ export default function VendedoresPage() {
                   </div>
                   {v.contacto && <p className="text-xs text-slate-500 mt-0.5">Contacto: {v.contacto}</p>}
                   <p className="text-[11px] text-slate-400 font-mono mt-0.5">ID: {v.id}</p>
+
+                  <div className="mt-3">
+                    {ventasLoading || comisionesLoading ? (
+                      <p className="text-xs text-slate-400">Cargando estadísticas…</p>
+                    ) : estadistica?.cantidadVentas ? (
+                      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Ventas</p>
+                          <p className="mt-0.5 text-sm font-bold text-slate-800">{estadistica.cantidadVentas}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Unidades</p>
+                          <p className="mt-0.5 text-sm font-bold text-slate-800">{estadistica.unidadesVendidas}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Vendido</p>
+                          <p className="mt-0.5 text-sm font-bold text-slate-800">{money(estadistica.valorVentas)}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Recaudo neto</p>
+                          <p className="mt-0.5 text-sm font-bold text-slate-800">{money(estadistica.recaudoNeto)}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Comisión pendiente</p>
+                          <p className="mt-0.5 text-sm font-bold text-slate-800">{money(estadistica.saldoComision)}</p>
+                        </div>
+                      </div>
+                    ) : ventasError || comisionesError ? null : (
+                      <p className="text-xs text-slate-400">Aún no registra ventas.</p>
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -203,7 +291,8 @@ export default function VendedoresPage() {
                   )}
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
